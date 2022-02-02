@@ -159,7 +159,12 @@ namespace detail {
  * @tparam T Type of tensor
  * @tparam RANK Rank of tensor
  */
-template <typename T, int RANK, typename Desc = tensor_desc_cr_ds_64_64_t<RANK>> 
+template <typename T, int RANK, 
+          template <typename, typename, int> typename Desc = tensor_desc_t, 
+                    typename DShapeType = std::array<long long int>,
+                    typename DStrideType = std::array<long long int>,
+                    int DRANK = RANK
+          > 
 class tensor_impl_t {
   public:
     // Type specifier for reflection on class
@@ -167,9 +172,9 @@ class tensor_impl_t {
     using scalar_type = T;
     using value_type = T;
     using tensor_view = bool;
-    using desc_type = Desc;
-    using shape_type = typename Desc::shape_type;
-    using stride_type = typename Desc::stride_type;
+    using desc_type = Desc<DShapeType, DStrideType, DRANK>;
+    using shape_type = typename DShapeType;
+    using stride_type = typename DStrideType;
 
     // Type specifier for signaling this is a matx operation
     using matxop = bool;
@@ -874,7 +879,7 @@ class tensor_impl_t {
 
   protected:
     T *ldata_;
-    Desc desc_;
+    desc_type desc_;
 };
 
 }

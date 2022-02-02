@@ -89,8 +89,12 @@ enum {
 template <typename T, 
           int RANK, 
           typename Storage = DefaultStorage<T>, 
-          typename Desc = DefaultDescriptor<RANK>> 
-class tensor_t : public detail::tensor_impl_t<T,RANK,Desc> {
+          template <typename, typename, int> typename Desc = tensor_desc_t, 
+            typename DShapeType = std::array<long long int>,
+            typename DStrideType = std::array<long long int>,
+            int DRANK = RANK
+        > 
+class tensor_t : public detail::tensor_impl_t<T, RANK, Desc, DShapeType, DStrideType, DRANK> {
 public:
   // Type specifier for reflection on class
   using type = T; ///< Type of traits
@@ -100,7 +104,7 @@ public:
   using matxop = bool; ///< Indicate this is a MatX operator
   using tensor_view = bool; ///< Indicate this is a MatX tensor view
   using storage_type = Storage; ///< Storage type trait
-  using desc_type = Desc; ///< Descriptor type trait
+  using desc_type = Desc<DShapeType, DStrideType, DRANK>; ///< Descriptor type trait
   static constexpr bool PRINT_ON_DEVICE = false;      ///< Print() uses printf on device
 
   /**
@@ -108,7 +112,7 @@ public:
    * 
    */
   tensor_t() :
-    detail::tensor_impl_t<T, RANK, Desc>{}, 
+    detail::tensor_impl_t<T, RANK, Desc, DShapeType, DStrideType, DRANK>{}, 
     storage_{typename Storage::container{sizeof(T)}}
   {
     this->SetLocalData(storage_.data());
@@ -121,7 +125,7 @@ public:
    * @param rhs Object to copy from
    */
   __MATX_HOST__ tensor_t(tensor_t const &rhs) noexcept
-      : detail::tensor_impl_t<T, RANK, Desc>{rhs.ldata_, rhs.desc_}, storage_(rhs.storage_)
+      : detail::tensor_impl_t<T, RANK, Desc, DShapeType, DStrideType, DRANK>{rhs.ldata_, rhs.desc_}, storage_(rhs.storage_)
       { }
 
   /**
@@ -130,7 +134,7 @@ public:
    * @param rhs Object to move from
    */
   __MATX_HOST__ tensor_t(tensor_t &&rhs) noexcept
-      : detail::tensor_impl_t<T, RANK, Desc>{rhs.ldata_, std::move(rhs.desc_)}, storage_(std::move(rhs.storage_))
+      : detail::tensor_impl_t<T, RANK, Desc, DShapeType, DStrideType, DRANK>{rhs.ldata_, std::move(rhs.desc_)}, storage_(std::move(rhs.storage_))
   { }
 
   /** Perform a shallow copy of a tensor view
@@ -142,7 +146,7 @@ public:
    * @param rhs
    *   Tensor to copy from
    */
-  __MATX_HOST__ void Shallow(const tensor_t<T, RANK, Storage, Desc> &rhs) noexcept
+  __MATX_HOST__ void Shallow(const tensor_t<T, RANK, Storage, Desc, DShapeType, DStrideType, DRANK> &rhs) noexcept
   {
     this->ldata_ = rhs.ldata_;
     storage_ = rhs.storage_;
@@ -160,7 +164,7 @@ public:
    * @param s Shape object
    * @param desc Descriptor object
    */
-  template <typename S2 = Storage, typename D2 = Desc, 
+  template <typename S2 = Storage, typename D2 = desc_type, 
             std::enable_if_t<is_matx_storage_v<typename remove_cvref<S2>::type> && is_matx_descriptor_v<typename remove_cvref<D2>::type>, bool> = true>
   tensor_t(S2 &&s, D2 &&desc) :
     detail::tensor_impl_t<T, RANK, Desc>{std::forward<D2>(desc)},

@@ -54,6 +54,7 @@ public:
   using shape_container = ShapeType; ///< Type trait of shape container
   using stride_container = StrideType; ///< Type trait of stride container
   using matx_descriptor = bool; ///< Type trait to indicate this is a tensor descriptor
+  using ctype = tensor_desc_t;
 
   /**
    * @brief Default copy constructor
@@ -315,6 +316,7 @@ public:
   using shape_type  = index_t; ///< Type trait of shape container
   using stride_type = index_t; ///< Type trait of stride container
   using matx_descriptor = bool; ///< Type trait to indicate this is a tensor descriptor
+  using ctype = static_tensor_desc_t;
 
   /**
    * Check if a descriptor is linear in memory for all elements in the view
