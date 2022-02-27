@@ -1315,6 +1315,7 @@ void svd(UTensor &u, STensor &s,
          VTensor &v, const ATensor &a,
          cudaStream_t stream = 0, const char jobu = 'A', const char jobvt = 'A')
 {
+  constexpr int RANK = ATensor::Rank();
   using T1 = typename ATensor::scalar_type;
   using T2 = typename UTensor::scalar_type;
   using T3 = typename STensor::scalar_type;
@@ -1325,29 +1326,56 @@ void svd(UTensor &u, STensor &s,
      library appear as though everything is row-major, we take a performance hit
      to transpose in and out of the function. Eventually this may be fixed in
      cuSolver.
+
+     Moreover, cuSolver only supports matrices with more rows than columns (m >= n).
+     simply reinterpret the matrix as already transposed and in column-major format
+     in these cases.
   */
-  T1 *tp;
-  matxAlloc(reinterpret_cast<void **>(&tp), a.Bytes(), MATX_ASYNC_DEVICE_MEMORY,
-            stream);
-  auto tv = detail::matxDnSolver_t::TransposeCopy(tp, a, stream);
-  auto tvt = tv.PermuteMatrix();
+  if (a.Size(RANK - 1) > a.Size(RANK - 2)) {
+    std::cout << "new routine" << std::endl;
+    auto tv = a.PermuteMatrix();
+    auto tvt = tv.View
 
-  // Get parameters required by these tensors
-  auto params = detail::matxDnSVDSolverPlan_t<UTensor, STensor, VTensor, ATensor>::GetSVDParams(
-      u, s, v, tvt, jobu, jobvt);
+    // Get parameters required by these tensors
+    auto params = detail::matxDnSVDSolverPlan_t<UTensor, STensor, VTensor, ATensor>::GetSVDParams(
+        v, s, u, tvt, jobvt, jobu);
 
-  // Get cache or new QR plan if it doesn't exist
-  auto ret = detail::dnsvd_cache.Lookup(params);
-  if (ret == std::nullopt) {
-    auto tmp = new detail::matxDnSVDSolverPlan_t{u, s, v, tvt, jobu, jobvt};
+    // Get cache or new QR plan if it doesn't exist
+    auto ret = detail::dnsvd_cache.Lookup(params);
+    if (ret == std::nullopt) {
+      auto tmp = new detail::matxDnSVDSolverPlan_t{v, s, u, tvt, jobvt, jobu};
 
-    detail::dnsvd_cache.Insert(params, static_cast<void *>(tmp));
-    tmp->Exec(u, s, v, tvt, jobu, jobvt, stream);
-  }
-  else {
-    auto svd_type =
+      detail::dnsvd_cache.Insert(params, static_cast<void *>(tmp));
+      tmp->Exec(v, s, u, tvt, jobvt, jobu, stream);
+    } else {
+      auto svd_type =
+        static_cast<detail::matxDnSVDSolverPlan_t<VTensor, STensor, UTensor, ATensor> *>(ret.value());
+      svd_type->Exec(v, s, u, tvt, jobvt, jobu, stream);
+    }
+
+  } else {
+    T1 *tp;
+    matxAlloc(reinterpret_cast<void **>(&tp), a.Bytes(), MATX_ASYNC_DEVICE_MEMORY,
+              stream);
+    auto tv = detail::matxDnSolver_t::TransposeCopy(tp, a, stream);
+    auto tvt = tv.PermuteMatrix();
+
+    // Get parameters required by these tensors
+    auto params = detail::matxDnSVDSolverPlan_t<UTensor, STensor, VTensor, ATensor>::GetSVDParams(
+        u, s, v, tvt, jobu, jobvt);
+
+    // Get cache or new QR plan if it doesn't exist
+    auto ret = detail::dnsvd_cache.Lookup(params);
+    if (ret == std::nullopt) {
+      auto tmp = new detail::matxDnSVDSolverPlan_t{u, s, v, tvt, jobu, jobvt};
+
+      detail::dnsvd_cache.Insert(params, static_cast<void *>(tmp));
+      tmp->Exec(u, s, v, tvt, jobu, jobvt, stream);
+    } else {
+      auto svd_type =
         static_cast<detail::matxDnSVDSolverPlan_t<UTensor, STensor, VTensor, ATensor> *>(ret.value());
-    svd_type->Exec(u, s, v, tvt, jobu, jobvt, stream);
+      svd_type->Exec(u, s, v, tvt, jobu, jobvt, stream);
+    }
   }
 }
 
