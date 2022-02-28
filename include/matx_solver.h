@@ -1333,25 +1333,27 @@ void svd(UTensor &u, STensor &s,
   */
   if (a.Size(RANK - 1) > a.Size(RANK - 2)) {
     std::cout << "new routine" << std::endl;
-    auto tv = a.PermuteMatrix();
-    auto tvt = tv.View
+    //auto tvt = a.PermuteMatrix();
+    auto shape = a.Shape();
+    std::swap(shape[RANK - 2], shape[RANK - 1]);
+    auto tvt = a.View(shape);
 
-    // Get parameters required by these tensors
-    auto params = detail::matxDnSVDSolverPlan_t<UTensor, STensor, VTensor, ATensor>::GetSVDParams(
-        v, s, u, tvt, jobvt, jobu);
+    // // Get parameters required by these tensors
+    // auto params = detail::matxDnSVDSolverPlan_t<VTensor, STensor, UTensor, ATensor>::GetSVDParams(
+    //     v, s, u, tvt, jobvt, jobu);
 
-    // Get cache or new QR plan if it doesn't exist
-    auto ret = detail::dnsvd_cache.Lookup(params);
-    if (ret == std::nullopt) {
-      auto tmp = new detail::matxDnSVDSolverPlan_t{v, s, u, tvt, jobvt, jobu};
+    // // Get cache or new QR plan if it doesn't exist
+    // auto ret = detail::dnsvd_cache.Lookup(params);
+    // if (ret == std::nullopt) {
+    //   auto tmp = new detail::matxDnSVDSolverPlan_t{v, s, u, tvt, jobvt, jobu};
 
-      detail::dnsvd_cache.Insert(params, static_cast<void *>(tmp));
-      tmp->Exec(v, s, u, tvt, jobvt, jobu, stream);
-    } else {
-      auto svd_type =
-        static_cast<detail::matxDnSVDSolverPlan_t<VTensor, STensor, UTensor, ATensor> *>(ret.value());
-      svd_type->Exec(v, s, u, tvt, jobvt, jobu, stream);
-    }
+    //   detail::dnsvd_cache.Insert(params, static_cast<void *>(tmp));
+    //   tmp->Exec(v, s, u, tvt, jobvt, jobu, stream);
+    // } else {
+    //   auto svd_type =
+    //     static_cast<detail::matxDnSVDSolverPlan_t<VTensor, STensor, UTensor, ATensor> *>(ret.value());
+    //   svd_type->Exec(v, s, u, tvt, jobvt, jobu, stream);
+    // }
 
   } else {
     T1 *tp;
